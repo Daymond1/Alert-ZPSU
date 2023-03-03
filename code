@@ -1,0 +1,130 @@
+using System.Net.Sockets;
+using System.Text;
+using NAudio.Wave;
+
+class AlertZPSU
+{
+    static void Main(string[] args)
+    {
+        Console.WriteLine("\n");
+        Console.WriteLine("     _    _           _     _________  ____  _   _ \r\n    / \\  | | ___ _ __| |_  |__  |  _ \\/ ___|| | | |\r\n   / _ \\ | |/ _ | '__| __|   / /| |_) \\___ \\| | | |\r\n  / ___ \\| |  __| |  | |_   / /_|  __/ ___) | |_| |\r\n /_/   \\_|_|\\___|_|   \\__| /____|_|   |____/ \\___/ \r\n                                                 ");
+        Console.WriteLine("    Telegram: @i_m_r_o_o_t\n");
+        Console.WriteLine("    GitHub https://github.com/Daymond1/Alert-ZPSU\n");
+        Console.SetWindowSize(55, 25);
+
+        // Задаємо адресу сервера і порт
+        string server = "tcp.alerts.com.ua";
+        int port = 1024;
+
+        // Задаємо API ключ
+        string apiKey = "YOUR_API,STATE";
+
+        // Створюємо TCP клієнта
+        TcpClient client = new TcpClient();
+
+        // Підключаємося до сервера
+        try
+        {
+            client.Connect(server, port);
+            Console.WriteLine("Пiдключено до {0}:{1}", server, port);
+            // Конвертуємо API ключ в байти
+            byte[] apiKeyBytes = Encoding.ASCII.GetBytes(apiKey);
+
+            // Відправляємо API ключ на сервер
+            client.GetStream().Write(apiKeyBytes, 0, apiKeyBytes.Length);
+        }
+        catch
+        {
+            Console.WriteLine("Не вдалося підключитися до {0}:{1}\nНемає iнтернет з'єднання!", server, port);
+        }
+
+        // Цикл для отримання даних з сервера кожні 15 секунд
+        while (true)
+        {
+            try
+            {
+                // Буфер для збереження отриманих даних
+                byte[] buffer = new byte[1024];
+
+                // Зчитуємо дані з сервера
+                int bytesRead = client.GetStream().Read(buffer, 0, buffer.Length);
+
+                // Перетворюємо байти в рядок
+                string data = Encoding.ASCII.GetString(buffer, 0, bytesRead);
+
+                // Виводимо дані в консоль
+                Console.WriteLine(data);
+
+                // Змінюємо значення прапора в залежності від отриманих даних
+                if (data.Trim() == "s:5=1")
+                {
+                    CheckFlagStatus(true);
+                }
+                else if (data.Trim() == "s:5=0")
+                {
+                    CheckFlagStatus(false);
+                }
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error: {0}", ex.Message);
+                break;
+            }
+
+        }
+
+
+        // Закриваємо з'єднання з сервером
+        client.Close();
+
+        Console.WriteLine("Пiдключення закрито!");
+    }
+
+
+    private static void CheckFlagStatus(bool newFlagStatus)
+    {
+        // Задаємо шлях до текстового файлу
+        string filePath = "flag.txt";
+
+        // Зчитуємо попереднє значення прапора з файлу
+        string previousFlagStatusString = File.ReadAllText(filePath);
+        bool previousFlagStatus = (previousFlagStatusString.Trim() == "s:5=1");
+        //Console.WriteLine("Останнє значення прапору - {0}", previousFlagStatus);
+
+        // Порівнюємо попереднє та нове значення прапора
+        if (previousFlagStatus != newFlagStatus)
+        {
+            if (newFlagStatus)
+            {
+                Console.WriteLine("Тривога!");
+                PlaySound(@"woman-voice-attention.mp3");
+            }
+            else
+            {
+                Console.WriteLine("Вiдбiй тривоги!");
+                PlaySound(@"woman-voice-all-clear.mp3");
+            }
+
+            // Записуємо нове значення прапора до файлу
+            File.WriteAllText(filePath, newFlagStatus ? "s:5=1" : "s:5=0");
+        }
+    }
+
+
+    private static void PlaySound(string filePath)
+    {
+        using (var audioFile = new AudioFileReader(filePath))
+        using (var outputDevice = new WaveOutEvent())
+        {
+            outputDevice.Init(audioFile);
+            outputDevice.Play();
+
+            while (outputDevice.PlaybackState == PlaybackState.Playing)
+            {
+                Thread.Sleep(100);
+            }
+        }
+    }
+
+}
